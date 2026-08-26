@@ -27,7 +27,7 @@ Two roles use the same app: **Admins** manage members, events and contributions 
 
 - **Frontend:** React 18, Vite, React Router, Axios, Recharts
 - **Backend:** Node.js, Express.js
-- **Database:** MongoDB, Mongoose
+- **Database:** MongoDB Atlas (cloud), Mongoose
 - **Auth:** JWT (jsonwebtoken), bcryptjs
 
 ## 4. Architecture
@@ -35,7 +35,7 @@ Two roles use the same app: **Admins** manage members, events and contributions 
 Standard three-tier REST architecture:
 
 ```
-React (Vite SPA) --HTTP/JSON--> Express REST API --Mongoose--> MongoDB
+React (Vite SPA) --HTTP/JSON--> Express REST API --Mongoose--> MongoDB Atlas
 ```
 
 The backend follows routes → controllers → services → models. Business logic (points, activity score, inactivity status) lives in a single service file (`services/activityService.js`) rather than scattered across controllers, so it's easy to find and reason about.
@@ -66,11 +66,10 @@ society-activity-tracker/
 │   │   ├── utils/           AppError, catchAsync
 │   │   ├── app.js
 │   │   └── server.js
-│   ├── seed.js
 │   └── package.json
 │
+├── start.bat
 ├── .gitignore
-├── .env.example
 ├── README.md
 └── INTERVIEW_GUIDE.md
 ```
@@ -87,15 +86,26 @@ society-activity-tracker/
 
 ## 7. Setup Instructions
 
-Requires Node.js 18+ and a running MongoDB instance (local `mongod` or a MongoDB Atlas connection string).
+Requires Node.js 18+ and a MongoDB Atlas cluster (or a local MongoDB instance if you prefer). The project connects to a persistent MongoDB Atlas database by default — no local database install required.
+
+### Windows — one-click setup (`start.bat`)
+
+A `start.bat` script is included at the project root and is the recommended way to run this project on Windows. Double-click it (or run it from a terminal) and it will:
+
+1. Create `server/.env` and `client/.env` from their `.env.example` templates the first time you run it (it will pause so you can fill in your real `MONGO_URI` and `JWT_SECRET`).
+2. Run `npm install` for both `server/` and `client/` automatically if `node_modules` is missing.
+3. Open two terminal windows — one for the backend, one for the frontend — so you never have to juggle two terminals manually.
+
+After it finishes starting both servers, open `http://localhost:5173`.
+
+### macOS / Linux / manual setup (any OS)
 
 **Terminal 1 — backend**
 
 ```bash
 cd server
-cp .env.example .env      # edit MONGO_URI / JWT_SECRET if needed
+cp .env.example .env      # fill in your real MONGO_URI and JWT_SECRET
 npm install
-npm run seed               # populates demo data
 npm run dev                # starts on http://localhost:5000
 ```
 
@@ -115,7 +125,7 @@ Open `http://localhost:5173` and log in.
 `server/.env`:
 
 ```
-MONGO_URI=mongodb://127.0.0.1:27017/society_tracker
+MONGO_URI=your-mongodb-atlas-connection-string
 JWT_SECRET=replace_this_with_a_long_random_secret
 PORT=5000
 ```
@@ -126,16 +136,18 @@ PORT=5000
 VITE_API_URL=http://localhost:5000/api
 ```
 
-## 9. Seed Instructions
+`MONGO_URI` should point to your own MongoDB Atlas cluster (or a local MongoDB instance if you're running one). Never commit a real `.env` file — only `.env.example` (a safe template with no real secrets) is tracked in this repo.
 
-`npm run seed` (inside `server/`) wipes and repopulates the four collections: 1 admin, 6 members, 8 events across all event types, a spread of attendance records (deliberately varied so the dashboard shows ACTIVE, LOW ACTIVITY and INACTIVE members), and 7 contributions. The script prints each event's check-in code to the terminal so you can test the check-in flow immediately.
+## 9. Demo Data
+
+This project connects to a persistent MongoDB Atlas database that already contains demo data (an admin account, several members with varied attendance histories, events across every event type, and sample contributions), so the app is immediately usable without any extra setup step. There is no seed/reset script — the data is expected to persist across runs rather than being wiped and regenerated each time.
 
 ## 10. Demo Credentials
 
-These are demo credentials seeded for local development only — do not reuse them anywhere real.
+These are demo credentials for local development only — do not reuse them anywhere real.
 
 - **Admin:** `admin@example.com` / `Admin@123`
-- **Member (any of the 6 seeded members):** `aisha@example.com`, `rohan@example.com`, `priya@example.com`, `karan@example.com`, `sneha@example.com`, `dev@example.com` — all use password `Member@123`
+- **Member (any seeded member):** `aisha@example.com`, `rohan@example.com`, `priya@example.com`, `karan@example.com`, `sneha@example.com`, `dev@example.com` — all use password `Member@123`
 
 ## 11. API Endpoints
 
@@ -210,10 +222,11 @@ Check-in (`POST /api/attendance/check-in`) validates, in order:
 - **Points decided server-side only** — the client sends an event type or a MINOR/MAJOR choice, never a number, closing off a simple abuse vector.
 - **No Redux** — the app's state is shallow (auth user + per-page fetched data), so React Context + `useState`/`useEffect` is enough and keeps the codebase approachable.
 - **JWT in localStorage** — simplest approach for a local college project; a production app would likely use httpOnly cookies instead (see Limitations).
+- **Persistent MongoDB Atlas database, no seed/reset script** — demo data is created once and expected to persist across runs, rather than being wiped and regenerated on every startup.
 
 ## 17. Assumptions
 
-- Single MongoDB instance running locally or reachable via `MONGO_URI`; no multi-tenant / multi-society support.
+- A reachable MongoDB instance via `MONGO_URI` (MongoDB Atlas or local); no multi-tenant / multi-society support.
 - One check-in code per event, valid for the entire configured window (no rotation).
 - "Meetings" for the attendance points table means `Weekly Meeting` and `Project Meeting`; all other event types count as the higher-value "event/workshop" tier.
 - Time zones are handled using the server's local time; no explicit multi-timezone support.
@@ -222,9 +235,10 @@ Check-in (`POST /api/attendance/check-in`) validates, in order:
 
 - JWT stored in `localStorage` is vulnerable to XSS in a way an httpOnly cookie is not; acceptable for a local assignment, not for production.
 - No password-reset or email-verification flow.
-- No pagination on member/event/contribution lists — fine at seed-data scale, would need it at real scale.
+- No pagination on member/event/contribution lists — fine at demo-data scale, would need it at real scale.
 - Inactivity detection uses a simple fixed rule (last 3 meetings) rather than a configurable policy.
 - No automated test suite included (manual/self-check verification only, documented in the project's final self-check).
+- No database seed/reset script — data must be created through the UI (or restored from an Atlas backup/export) if it's ever cleared.
 
 ## 19. Future Improvements
 
