@@ -1,253 +1,321 @@
 # Society Activity Tracker
 
-An internal society-management system that tracks how actively members participate in meetings, events, and society-related work: check-ins, contribution logging, an automatically computed activity score, and inactivity detection surfaced on an admin dashboard.
+A society management system that tracks how actively members participate in meetings, events, and society-related work. It handles event check-ins, contribution logging, calculates an activity score per member, and automatically flags members as inactive based on recent participation.
 
-## 1. Project Overview
-
-Core workflow:
+## Core Workflow
 
 ```
-Member → Meeting/Event Check-In → Contribution Logging → Activity Score → Inactivity Detection → Admin Dashboard
+Member
+  ↓
+Meeting/Event Check-In
+  ↓
+Contribution Logging
+  ↓
+Activity Score
+  ↓
+Inactivity Detection
+  ↓
+Admin Dashboard
 ```
 
-Two roles use the same app: **Admins** manage members, events and contributions and view analytics; **Members** check in to events and view their own activity.
+Two roles use the same application:
+- **Admin** — manages members, creates events, logs contributions, and views analytics.
+- **Member** — checks in to events and views their own activity.
 
-## 2. Features
+## Features
 
-- JWT authentication with bcrypt password hashing
-- Role-based access control enforced on the backend (not just hidden buttons)
-- Admin: create/search/filter members, create events, log contributions, activate/deactivate accounts
-- Member: check in with a temporary code, view personal activity timeline and profile
-- Backend-only point calculation (frontend can never set points directly)
-- MongoDB unique compound index preventing duplicate attendance
-- Deterministic inactivity detection based on the last 3 meetings
-- Admin dashboard with summary cards, a pie chart, and several ranked/recent lists
+### Admin
+- Add, search, and filter members
+- View individual member profiles and activity
+- Activate/deactivate member accounts
+- Create events (meetings, workshops, orientations, etc.)
+- Log contributions on behalf of members
+- View a dashboard with summary stats, an activity status chart, and recent activity
 
-## 3. Tech Stack
+### Member
+- Log in and view a personal dashboard
+- Check in to an event using a temporary check-in code
+- View a personal activity timeline
+- View profile and activity statistics
 
-- **Frontend:** React 18, Vite, React Router, Axios, Recharts
-- **Backend:** Node.js, Express.js
-- **Database:** MongoDB Atlas (cloud), Mongoose
-- **Auth:** JWT (jsonwebtoken), bcryptjs
+## Tech Stack
 
-## 4. Architecture
+| Layer          | Technology                          |
+|----------------|--------------------------------------|
+| Frontend       | React, Vite, React Router, Axios, Recharts |
+| Backend        | Node.js, Express                    |
+| Database       | MongoDB (Atlas), Mongoose           |
+| Authentication | JWT (jsonwebtoken), bcryptjs         |
 
-Standard three-tier REST architecture:
+## Architecture
 
 ```
-React (Vite SPA) --HTTP/JSON--> Express REST API --Mongoose--> MongoDB Atlas
+React Frontend
+      |
+      | HTTP / JSON
+      ↓
+Express REST API
+      |
+      ↓
+Routes → Controllers → Services → Models
+      |
+      ↓
+MongoDB (via Mongoose)
 ```
 
-The backend follows routes → controllers → services → models. Business logic (points, activity score, inactivity status) lives in a single service file (`services/activityService.js`) rather than scattered across controllers, so it's easy to find and reason about.
+Business logic for scoring and inactivity detection is centralized in a single service (`services/activityService.js`) rather than spread across controllers.
 
-## 5. Folder Structure
+## Project Structure
 
 ```
 society-activity-tracker/
 ├── client/
-│   ├── src/
-│   │   ├── components/     Layout, ProtectedRoute, StatusBadge
-│   │   ├── pages/           login, member/*, admin/*
-│   │   ├── services/api.js  axios instance + interceptors
-│   │   ├── context/AuthContext.jsx
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── package.json
-│   └── vite.config.js
+│   └── src/
+│       ├── components/     Layout, ProtectedRoute, StatusBadge
+│       ├── pages/          login, member/*, admin/*
+│       ├── services/       api.js (axios instance + interceptors)
+│       └── context/        AuthContext.jsx
 │
 ├── server/
-│   ├── src/
-│   │   ├── models/          User, Event, Attendance, Contribution
-│   │   ├── routes/
-│   │   ├── controllers/
-│   │   ├── middleware/      auth.js, errorHandler.js
-│   │   ├── services/        activityService.js (scoring + inactivity logic)
-│   │   ├── config/db.js
-│   │   ├── utils/           AppError, catchAsync
-│   │   ├── app.js
-│   │   └── server.js
-│   └── package.json
+│   └── src/
+│       ├── models/         User, Event, Attendance, Contribution
+│       ├── routes/
+│       ├── controllers/
+│       ├── middleware/     auth.js, errorHandler.js
+│       ├── services/       activityService.js
+│       └── config/         db.js
 │
 ├── start.bat
-├── .gitignore
-├── README.md
-└── INTERVIEW_GUIDE.md
+└── README.md
 ```
 
-## 6. Database Schema
+## Database Design
 
-**User**: name, email (unique), passwordHash (never returned by any API), role (`ADMIN`/`MEMBER`), department, position, joiningDate, isActive.
-
-**Event**: title, date, startTime, type (enum), checkInCode (unique, auto-generated), checkInStart, checkInEnd, createdBy (ref User).
-
-**Attendance**: member (ref User), event (ref Event), checkedInAt, attendancePoints. **Unique compound index on `{ member, event }`.**
-
-**Contribution**: member (ref User), title, description, category (enum), date, points, loggedBy (ref User).
-
-## 7. Setup Instructions
-
-Requires Node.js 18+ and a MongoDB Atlas cluster (or a local MongoDB instance if you prefer). The project connects to a persistent MongoDB Atlas database by default — no local database install required.
-
-### Windows — one-click setup (`start.bat`)
-
-A `start.bat` script is included at the project root and is the recommended way to run this project on Windows. Double-click it (or run it from a terminal) and it will:
-
-1. Create `server/.env` and `client/.env` from their `.env.example` templates the first time you run it (it will pause so you can fill in your real `MONGO_URI` and `JWT_SECRET`).
-2. Run `npm install` for both `server/` and `client/` automatically if `node_modules` is missing.
-3. Open two terminal windows — one for the backend, one for the frontend — so you never have to juggle two terminals manually.
-
-After it finishes starting both servers, open `http://localhost:5173`.
-
-### macOS / Linux / manual setup (any OS)
-
-**Terminal 1 — backend**
-
-```bash
-cd server
-cp .env.example .env      # fill in your real MONGO_URI and JWT_SECRET
-npm install
-npm run dev                # starts on http://localhost:5000
-```
-
-**Terminal 2 — frontend**
-
-```bash
-cd client
-cp .env.example .env       # VITE_API_URL, defaults to http://localhost:5000/api
-npm install
-npm run dev                # starts on http://localhost:5173
-```
-
-Open `http://localhost:5173` and log in.
-
-## 8. Environment Variables
-
-`server/.env`:
+| Model        | Purpose                              |
+|--------------|---------------------------------------|
+| User         | Stores admin and member accounts      |
+| Event        | Stores meetings/events and check-in details |
+| Attendance   | Links a member to an event they checked into |
+| Contribution | Stores work logged on behalf of a member |
 
 ```
-MONGO_URI=your-mongodb-atlas-connection-string
-JWT_SECRET=replace_this_with_a_long_random_secret
-PORT=5000
+User
+ ├── creates    → Event
+ ├── has many   → Attendance
+ └── has many   → Contribution
 ```
 
-`client/.env`:
+The **Attendance** model has a unique compound index on `{ member, event }`, ensuring a member can only have one attendance record per event.
+
+## Authentication & Authorization
+
+- **Authentication** answers "who are you?" — passwords are hashed with bcrypt before being stored, and login issues a JWT containing the user's id and role.
+- **Authorization** answers "what are you allowed to do?" — every protected route is guarded by middleware (`authenticate`, `requireAdmin`, `requireMember`) on the backend.
+
+Role checks are enforced at the API level, not just hidden in the UI — a member calling an admin-only endpoint directly receives a 403 regardless of what the frontend shows.
+
+## Attendance Check-In Flow
 
 ```
-VITE_API_URL=http://localhost:5000/api
+Member enters code
+      ↓
+Authenticate request
+      ↓
+Validate member role
+      ↓
+Find event by check-in code
+      ↓
+Validate check-in window (start/end time)
+      ↓
+Check for existing attendance record
+      ↓
+Create attendance record
+      ↓
+Assign attendance points (server-side)
 ```
 
-`MONGO_URI` should point to your own MongoDB Atlas cluster (or a local MongoDB instance if you're running one). Never commit a real `.env` file — only `.env.example` (a safe template with no real secrets) is tracked in this repo.
+## Duplicate Attendance Prevention
 
-## 9. Demo Data
+Duplicate check-ins are prevented in two layers:
 
-This project connects to a persistent MongoDB Atlas database that already contains demo data (an admin account, several members with varied attendance histories, events across every event type, and sample contributions), so the app is immediately usable without any extra setup step. There is no seed/reset script — the data is expected to persist across runs rather than being wiped and regenerated each time.
+1. **Application-level check** — the controller looks for an existing Attendance record for that member/event before inserting a new one.
+2. **Database-level constraint** — a MongoDB unique compound index on `{ member, event }` guarantees this at the database layer, regardless of timing.
 
-## 10. Demo Credentials
+The database constraint matters because two nearly-simultaneous requests could both pass the application-level check before either insert completes. The unique index prevents the second insert from ever succeeding, and the resulting duplicate-key error is caught and converted into a clear `409 Conflict` response.
 
-These are demo credentials for local development only — do not reuse them anywhere real.
-
-- **Admin:** `admin@example.com` / `Admin@123`
-- **Member (any seeded member):** `aisha@example.com`, `rohan@example.com`, `priya@example.com`, `karan@example.com`, `sneha@example.com`, `dev@example.com` — all use password `Member@123`
-
-## 11. API Endpoints
-
-| Method | Endpoint | Access |
-|---|---|---|
-| POST | /api/auth/login | Public |
-| GET | /api/members | Admin |
-| POST | /api/members | Admin |
-| GET | /api/members/me/activity | Any authenticated user (own data) |
-| GET | /api/members/:id | Admin |
-| PATCH | /api/members/:id/status | Admin |
-| GET | /api/members/:id/activity | Admin |
-| GET | /api/events | Any authenticated user |
-| GET | /api/events/:id | Any authenticated user |
-| POST | /api/events | Admin |
-| POST | /api/attendance/check-in | Member |
-| GET | /api/attendance/my | Member |
-| GET | /api/attendance/event/:eventId | Admin |
-| GET | /api/contributions | Admin |
-| POST | /api/contributions | Admin |
-| GET | /api/contributions/member/:memberId | Admin, or the member viewing their own |
-| GET | /api/dashboard/summary | Admin |
-
-All responses follow `{ success: true, data }` or `{ success: false, message }`.
-
-## 12. Activity Score Calculation
+## Activity Score Calculation
 
 ```
 Activity Score = Attendance Points + Contribution Points
 ```
 
-- Attendance points are decided by **event type**, not the frontend: `Weekly Meeting` / `Project Meeting` = 5 points, everything else (`Orientation`, `Workshop`, `Event`) = 10 points.
-- Contribution points are decided by the **contribution type** the admin picks (`MINOR` = 5, `MAJOR` = 15) — the admin never types in a raw number, and the frontend never sends points directly.
-- The score is never stored on the User document; it's recomputed on demand from the Attendance and Contribution collections in `services/activityService.js`, so it can never drift out of sync or be tampered with directly.
+- **Attendance points** are determined by event type: `Weekly Meeting` / `Project Meeting` = 5 points, `Orientation` / `Workshop` / `Event` = 10 points.
+- **Contribution points** are determined by the contribution type an admin selects: `MINOR` = 5, `MAJOR` = 15.
+- Points are always decided on the backend — the client never sends a raw point value.
+- The score is **not stored** on the User document. It's recalculated on demand from Attendance and Contribution records, so it can never drift out of sync.
 
-## 13. Inactivity Detection Logic
+## Inactivity Detection
 
-Deterministic rule, no machine learning:
+1. Identify the 3 most recent events that have already occurred (fewer than 3 if the society hasn't held that many yet).
+2. Check the member's attendance and contribution activity within that window.
+3. Classify the member:
+   - **INACTIVE** — no attendance and no contributions in that window.
+   - **LOW ACTIVITY** — some activity, but attendance at fewer than half of those recent events.
+   - **ACTIVE** — otherwise.
 
-1. Take the 3 most recent events that have already happened (by date). If fewer than 3 events exist yet, use however many exist.
-2. **INACTIVE** — zero attendance records **and** zero contributions during that window.
-3. **LOW ACTIVITY** — some activity, but attendance at fewer than half of those recent events.
-4. **ACTIVE** — otherwise.
+This is deterministic business logic, not a predictive or learned model.
 
-This runs in `computeInactivityStatus()` inside `activityService.js` and is reused by both the admin dashboard and the member's own activity view, so the same rule always produces the same status everywhere.
+## API Endpoints
 
-## 14. Validation Rules
+| Method | Endpoint | Access | Purpose |
+|--------|----------|--------|---------|
+| POST | `/api/auth/login` | Public | Login |
+| GET | `/api/members` | Admin | List/search/filter members |
+| POST | `/api/members` | Admin | Create a member |
+| GET | `/api/members/me/activity` | Authenticated | Own activity summary |
+| GET | `/api/members/:id` | Admin | Member profile |
+| PATCH | `/api/members/:id/status` | Admin | Activate/deactivate account |
+| GET | `/api/members/:id/activity` | Admin | Member activity summary |
+| GET | `/api/events` | Authenticated | List events |
+| GET | `/api/events/:id` | Authenticated | Event details |
+| POST | `/api/events` | Admin | Create event |
+| POST | `/api/attendance/check-in` | Member | Check in to an event |
+| GET | `/api/attendance/my` | Member | Own attendance history |
+| GET | `/api/attendance/event/:eventId` | Admin | Attendance for an event |
+| GET | `/api/contributions` | Admin | List contributions |
+| POST | `/api/contributions` | Admin | Log a contribution |
+| GET | `/api/contributions/member/:memberId` | Admin, or the member's own | Contributions for a member |
+| GET | `/api/dashboard/summary` | Admin | Dashboard analytics |
 
-Check-in (`POST /api/attendance/check-in`) validates, in order:
+Responses follow `{ success: true, data }` on success or `{ success: false, message }` on error.
 
-1. Caller is authenticated (401 if not).
-2. Caller has role `MEMBER` (403 if not).
-3. The code matches an existing event (400 `Invalid check-in code` if not).
-4. The current time is within `checkInStart`–`checkInEnd` (400 if not).
-5. No existing Attendance record for this member+event (409 `Already checked in`).
-6. As a final safety net, the MongoDB unique index also rejects the insert if two requests race past step 5 simultaneously — that duplicate-key error is caught and turned into the same 409 message.
+## Validation & Error Handling
 
-## 15. Authentication / Authorization
+Common validation errors and their responses:
 
-- Passwords are hashed with `bcryptjs` before storage; `passwordHash` has `select: false` in the schema and is stripped from every response.
-- `POST /api/auth/login` verifies the hash and issues a JWT (`jsonwebtoken`) containing the user's id and role, expiring in 7 days.
-- `middleware/auth.js` exports three middleware functions:
-  - `authenticate` — verifies the JWT and loads the user onto `req.user`.
-  - `requireAdmin` — 403s unless `req.user.role === 'ADMIN'`.
-  - `requireMember` — 403s unless `req.user.role === 'MEMBER'`.
-- Every protected route composes `authenticate` with the relevant role check, so hitting an admin-only endpoint as a member returns a real 403 from the server, not just a hidden button on the frontend.
+| Scenario | Status |
+|----------|--------|
+| Missing/invalid login credentials | 401 |
+| Missing or invalid JWT | 401 |
+| Insufficient role for the endpoint | 403 |
+| Invalid check-in code | 400 |
+| Check-in attempted outside the check-in window | 400 |
+| Duplicate attendance | 409 |
+| Resource not found (member, event, etc.) | 404 |
 
-## 16. Important Technical Decisions
+Errors are handled by a centralized Express error-handling middleware, which also catches Mongoose validation errors, invalid ObjectIds, and MongoDB duplicate-key errors.
 
-- **Temporary check-in code instead of QR scanning** — the assignment allows either; the code is far simpler to implement, test, and demo without a camera.
-- **Score computed on read, not stored** — avoids a whole class of bugs where a stored score gets out of sync with the underlying attendance/contribution records.
-- **Points decided server-side only** — the client sends an event type or a MINOR/MAJOR choice, never a number, closing off a simple abuse vector.
-- **No Redux** — the app's state is shallow (auth user + per-page fetched data), so React Context + `useState`/`useEffect` is enough and keeps the codebase approachable.
-- **JWT in localStorage** — simplest approach for a local college project; a production app would likely use httpOnly cookies instead (see Limitations).
-- **Persistent MongoDB Atlas database, no seed/reset script** — demo data is created once and expected to persist across runs, rather than being wiped and regenerated on every startup.
+## Application Screens
 
-## 17. Assumptions
+**Admin:** Dashboard, Members, Member Details, Events, Event Details, Contributions
 
-- A reachable MongoDB instance via `MONGO_URI` (MongoDB Atlas or local); no multi-tenant / multi-society support.
-- One check-in code per event, valid for the entire configured window (no rotation).
-- "Meetings" for the attendance points table means `Weekly Meeting` and `Project Meeting`; all other event types count as the higher-value "event/workshop" tier.
-- Time zones are handled using the server's local time; no explicit multi-timezone support.
+**Member:** Dashboard, Check-In, My Activity, My Profile
 
-## 18. Limitations
+## Setup & Installation
 
-- JWT stored in `localStorage` is vulnerable to XSS in a way an httpOnly cookie is not; acceptable for a local assignment, not for production.
+### Prerequisites
+
+- Node.js 18+
+- A MongoDB connection string (MongoDB Atlas or local MongoDB)
+
+### Clone
+
+```bash
+git clone <your-repository-url>
+```
+
+### Windows — one-click setup
+
+Run `start.bat` from the project root. It will:
+
+```
+start.bat
+   ↓
+Creates server/.env and client/.env from .env.example if missing
+   ↓
+Installs dependencies for server/ and client/ if missing
+   ↓
+Starts the backend (http://localhost:5000)
+   ↓
+Starts the frontend (http://localhost:5173)
+```
+
+### Manual setup (any OS)
+
+**Backend**
+```bash
+cd server
+cp .env.example .env
+npm install
+npm run dev
+```
+
+**Frontend**
+```bash
+cd client
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Then open `http://localhost:5173`.
+
+### Environment Variables
+
+`server/.env`
+```env
+MONGO_URI=your-mongodb-connection-string
+JWT_SECRET=your-secret-key
+PORT=5000
+```
+
+`client/.env`
+```env
+VITE_API_URL=http://localhost:5000/api
+```
+
+Real `.env` files are never committed to this repository — only `.env.example` templates are tracked.
+
+## Demo Credentials
+
+Demo credentials are provided separately for evaluation and are not published in this README, since this project connects to a persistent database rather than a disposable local sandbox.
+
+## Important Technical Decisions
+
+**Temporary check-in code instead of QR scanning**
+Simpler to implement, test, and demonstrate without requiring camera access.
+
+**Server-side point calculation**
+The client only sends an event type or a MINOR/MAJOR contribution choice — never a raw point value — so points can't be tampered with from the frontend.
+
+**Dynamically calculated activity score**
+Calculating the score on read, rather than storing it, avoids the score ever drifting out of sync with the underlying Attendance/Contribution records.
+
+**MongoDB unique compound index for attendance**
+Provides a database-level guarantee against duplicate check-ins that application code alone cannot fully provide under concurrent requests.
+
+**React Context instead of Redux**
+The app's state is shallow (auth user plus per-page fetched data), so Context and `useState`/`useEffect` are sufficient without added complexity.
+
+## Assumptions
+
+- Single society/organization — no multi-tenant support.
+- One check-in code per event, valid for the entire configured check-in window.
+- "Meetings" (`Weekly Meeting`, `Project Meeting`) are worth fewer points than other event types (`Orientation`, `Workshop`, `Event`).
+- Server's local time is used for all time-based checks.
+
+## Limitations
+
+- JWT is stored in `localStorage`, which is more vulnerable to XSS than an httpOnly cookie.
 - No password-reset or email-verification flow.
-- No pagination on member/event/contribution lists — fine at demo-data scale, would need it at real scale.
-- Inactivity detection uses a simple fixed rule (last 3 meetings) rather than a configurable policy.
-- No automated test suite included (manual/self-check verification only, documented in the project's final self-check).
-- No database seed/reset script — data must be created through the UI (or restored from an Atlas backup/export) if it's ever cleared.
+- No pagination on member/event/contribution lists.
+- Inactivity detection uses a fixed rule (last 3 meetings) rather than a configurable policy.
+- No automated test suite.
 
-## 19. Future Improvements
+## Future Improvements
 
-- Pagination and server-side sorting for large member lists.
-- Configurable inactivity window (e.g., admin sets "last N meetings").
-- Email notifications when a member becomes INACTIVE.
-- Move JWT to an httpOnly cookie with CSRF protection.
-- Automated tests (Jest/Supertest for the API, React Testing Library for the frontend).
-
-## Duplicate Attendance Prevention (interview-relevant detail)
-
-This is intentionally called out because it's a strong interview topic: relying on "check if a record exists, then insert" from application code is subject to a race condition — two nearly-simultaneous requests can both pass the "does it exist?" check before either insert completes, creating two records. The fix here is a **MongoDB unique compound index** on `{ member: 1, event: 1 }` in `models/Attendance.js`. The database itself guarantees the invariant regardless of timing. The application-level check in the controller still runs first (so most users get a fast, friendly error), and the duplicate-key error (Mongo error code `11000`) is caught as a fallback and converted into the same `409 "You have already checked in to this event."` response in `middleware/errorHandler.js`.
+- Pagination and server-side sorting for large lists
+- Configurable inactivity window
+- Email notifications when a member becomes inactive
+- Move JWT to an httpOnly cookie with CSRF protection
+- Automated tests (Jest/Supertest for the API, React Testing Library for the frontend)
