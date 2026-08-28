@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -20,20 +20,30 @@ export default function Layout({ title, children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const links = user?.role === 'ADMIN' ? adminLinks : memberLinks;
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function handleLogout() {
     logout();
     navigate('/login');
   }
 
+  function handleLinkClick() {
+    setSidebarOpen(false);
+  }
+
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      {sidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <aside className={`sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
         <div className="sidebar-brand">Society Tracker</div>
         {links.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}
+            onClick={handleLinkClick}
             className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
           >
             {link.label}
@@ -45,11 +55,21 @@ export default function Layout({ title, children }) {
           <span style={{ opacity: 0.7 }}>{user?.role}</span>
         </div>
       </aside>
+
       <div className="main-area">
         <header className="topbar">
-          <h1>{title}</h1>
+          <div className="topbar-left">
+            <button
+              className="hamburger-btn"
+              aria-label="Toggle menu"
+              onClick={() => setSidebarOpen((v) => !v)}
+            >
+              ☰
+            </button>
+            <h1>{title}</h1>
+          </div>
           <div className="topbar-user">
-            <span>{user?.email}</span>
+            <span className="topbar-email">{user?.email}</span>
             <button className="btn btn-secondary" onClick={handleLogout}>Logout</button>
           </div>
         </header>
